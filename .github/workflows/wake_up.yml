@@ -3,8 +3,8 @@ name: Keep Student Bebras Streamlit Awake
 on:
   workflow_dispatch:
   schedule:
+    # Chạy mỗi 1 tiếng, phút 37.
     - cron: "37 * * * *"
-      timezone: "Asia/Bangkok"
 
 permissions:
   contents: read
