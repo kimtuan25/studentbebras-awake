@@ -1,4 +1,4 @@
-import datetime
+import datetime as dt
 import os
 import sys
 import time
@@ -20,22 +20,26 @@ CHROMEDRIVER_PATH = os.getenv("CHROMEDRIVER_PATH", "").strip()
 
 PAGELOAD_TIMEOUT_SECONDS = int(os.getenv("PAGELOAD_TIMEOUT_SECONDS", "30"))
 WAKE_TIMEOUT_SECONDS = int(os.getenv("WAKE_TIMEOUT_SECONDS", "240"))
-POLL_SECONDS = int(os.getenv("POLL_SECONDS", "3"))
+POLL_SECONDS = int(os.getenv("POLL_SECONDS", "5"))
 
 
 SLEEP_MARKERS = (
     "yes, get this app back up",
     "this app has gone to sleep due to inactivity",
-    "zzzz",
     "this app is waking up",
     "your app is waking up",
+    "zzzz",
 )
 
 WAKE_BUTTON_LOCATORS = (
     (By.CSS_SELECTOR, "button[data-testid='wakeup-button-viewer']"),
     (By.CSS_SELECTOR, "button[data-testid='wakeup-button-owner']"),
     (By.CSS_SELECTOR, "button[data-testid='wakeup-button']"),
-    (By.XPATH, "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'yes, get this app back up')]"),
+    (
+        By.XPATH,
+        "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "
+        "'yes, get this app back up')]",
+    ),
 )
 
 STREAMLIT_APP_SELECTORS = (
@@ -48,7 +52,7 @@ STREAMLIT_APP_SELECTORS = (
 
 
 def log(message: str) -> None:
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line = f"[{timestamp}] {message}"
     print(line, flush=True)
     with open(LOG_FILE, "a", encoding="utf-8") as f:
@@ -78,11 +82,7 @@ def create_driver():
         "Chrome/120.0.0.0 Safari/537.36"
     )
 
-    if CHROMEDRIVER_PATH:
-        service = Service(executable_path=CHROMEDRIVER_PATH)
-    else:
-        service = Service()
-
+    service = Service(executable_path=CHROMEDRIVER_PATH) if CHROMEDRIVER_PATH else Service()
     return webdriver.Chrome(service=service, options=options)
 
 
@@ -124,13 +124,13 @@ def click_wake_button(driver) -> bool:
         driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
         time.sleep(0.5)
         button.click()
+        return True
     except Exception:
         try:
             driver.execute_script("arguments[0].click();", button)
+            return True
         except Exception:
             return False
-
-    return True
 
 
 def app_content_loaded(driver) -> bool:
@@ -151,10 +151,7 @@ def app_content_loaded(driver) -> bool:
         pass
 
     current_url = (driver.current_url or "").lower()
-    if ".streamlit.app" in current_url and len(body.strip()) >= 30:
-        return True
-
-    return False
+    return ".streamlit.app" in current_url and len(body.strip()) >= 30
 
 
 def check_one_app(url: str) -> tuple[bool, str]:
@@ -187,7 +184,7 @@ def check_one_app(url: str) -> tuple[bool, str]:
                 if click_wake_button(driver):
                     clicked = True
                     log("Sleep page detected. Wake button clicked.")
-                    time.sleep(5)
+                    time.sleep(8)
                 else:
                     log("Sleep page detected, but wake button not clickable yet.")
                     time.sleep(POLL_SECONDS)
@@ -197,9 +194,8 @@ def check_one_app(url: str) -> tuple[bool, str]:
                 if clicked:
                     log(f"WOKEN OK. current_url={current_url}")
                     return True, "WOKEN"
-                else:
-                    log(f"AWAKE OK. current_url={current_url}")
-                    return True, "AWAKE"
+                log(f"AWAKE OK. current_url={current_url}")
+                return True, "AWAKE"
 
             short_body = " ".join(body.split())[:160]
             log(f"Waiting for app content... current_url={current_url} body='{short_body}'")
