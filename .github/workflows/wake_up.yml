@@ -3,8 +3,6 @@ name: Keep Student Bebras Streamlit Awake
 on:
   workflow_dispatch:
   schedule:
-    # Chạy mỗi 1 tiếng, phút 37.
-    # Dùng phút 37 để tránh giờ cao điểm đầu giờ.
     - cron: "37 * * * *"
       timezone: "Asia/Bangkok"
 
@@ -21,8 +19,6 @@ jobs:
     timeout-minutes: 10
 
     env:
-      # Từ 29/05/2026 đến hết 29/06/2026 theo giờ Việt Nam.
-      # Nếu muốn dừng sớm hơn, sửa ngày này.
       END_DATE_ICT: "2026-06-29"
 
     steps:
@@ -44,11 +40,11 @@ jobs:
 
       - name: Checkout repository
         if: steps.active_window.outputs.active == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
         if: steps.active_window.outputs.active == 'true'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -71,12 +67,12 @@ jobs:
           CHROMEDRIVER_PATH: ${{ steps.setup-chrome.outputs.chromedriver-path }}
           PAGELOAD_TIMEOUT_SECONDS: "30"
           WAKE_TIMEOUT_SECONDS: "240"
-          POLL_SECONDS: "3"
+          POLL_SECONDS: "5"
         run: python wake_up_streamlit.py
 
       - name: Upload wake log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: wakeup-log
           path: wakeup_log.txt
