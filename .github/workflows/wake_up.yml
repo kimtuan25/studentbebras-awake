@@ -1,0 +1,84 @@
+name: Keep Student Bebras Streamlit Awake
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Chạy mỗi 1 tiếng, phút 37.
+    # Dùng phút 37 để tránh giờ cao điểm đầu giờ.
+    - cron: "37 * * * *"
+      timezone: "Asia/Bangkok"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keep-studentbebras-awake
+  cancel-in-progress: true
+
+jobs:
+  wake-up:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      # Từ 29/05/2026 đến hết 29/06/2026 theo giờ Việt Nam.
+      # Nếu muốn dừng sớm hơn, sửa ngày này.
+      END_DATE_ICT: "2026-06-29"
+
+    steps:
+      - name: Check one-month active window
+        id: active_window
+        shell: bash
+        run: |
+          today="$(TZ=Asia/Bangkok date +%Y-%m-%d)"
+          echo "Today in Asia/Bangkok: $today"
+          echo "End date in Asia/Bangkok: $END_DATE_ICT"
+
+          if [[ "$today" > "$END_DATE_ICT" ]]; then
+            echo "active=false" >> "$GITHUB_OUTPUT"
+            echo "Wake-up period expired. Skipping."
+          else
+            echo "active=true" >> "$GITHUB_OUTPUT"
+            echo "Wake-up period active. Continuing."
+          fi
+
+      - name: Checkout repository
+        if: steps.active_window.outputs.active == 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        if: steps.active_window.outputs.active == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Chrome and ChromeDriver
+        if: steps.active_window.outputs.active == 'true'
+        id: setup-chrome
+        uses: browser-actions/setup-chrome@v2
+        with:
+          install-chromedriver: true
+          install-dependencies: true
+
+      - name: Install dependencies
+        if: steps.active_window.outputs.active == 'true'
+        run: python -m pip install -r requirements.txt
+
+      - name: Run wake script
+        if: steps.active_window.outputs.active == 'true'
+        env:
+          CHROME_BINARY: ${{ steps.setup-chrome.outputs.chrome-path }}
+          CHROMEDRIVER_PATH: ${{ steps.setup-chrome.outputs.chromedriver-path }}
+          PAGELOAD_TIMEOUT_SECONDS: "30"
+          WAKE_TIMEOUT_SECONDS: "240"
+          POLL_SECONDS: "3"
+        run: python wake_up_streamlit.py
+
+      - name: Upload wake log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wakeup-log
+          path: wakeup_log.txt
+          retention-days: 7
+          if-no-files-found: ignore
