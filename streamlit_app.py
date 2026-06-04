@@ -2,4 +2,5 @@
 
 STREAMLIT_APPS = [
     "https://studentbebras-rensdbakyhpmoabfb6zy83.streamlit.app/",
+    "https://bebrasforec.streamlit.app/",
 ]
